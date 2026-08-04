@@ -1,0 +1,46 @@
+name: Bug report
+description: Something in the framework or app is broken
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: "Thanks for reporting. The more of this you fill in, the faster it gets fixed."
+  - type: input
+    id: command
+    attributes:
+      label: Exact command you ran
+      placeholder: pytest tests/02_pom/test_login.py -k valid --browser firefox
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected vs what happened
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Full pytest output
+      render: shell
+    validations:
+      required: true
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser
+      options: [chromium, firefox, webkit, all of them, not browser-specific]
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Python and Playwright versions
+      placeholder: "python 3.12.3, playwright 1.47.0"
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I ran `python -m playwright install` after pulling
+        - label: It reproduces on a clean clone

@@ -1,0 +1,30 @@
+# Dependabot is free, built in, and the cheapest possible supply-chain hygiene.
+#
+# The Playwright client and the browser binaries must move together, so review
+# playwright bumps properly rather than auto-merging them: a new client version
+# needs `playwright install` to run, which our cache key handles automatically.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+    open-pull-requests-limit: 5
+    labels: ["dependencies", "python"]
+    groups:
+      # Group the linters so you get one PR, not four.
+      dev-tooling:
+        patterns: ["ruff", "black", "pre-commit"]
+      pytest-plugins:
+        patterns: ["pytest*"]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    labels: ["dependencies", "ci"]
+    groups:
+      actions:
+        patterns: ["*"]

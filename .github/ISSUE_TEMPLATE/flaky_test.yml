@@ -1,0 +1,48 @@
+name: Flaky test
+description: A test that passes sometimes and fails sometimes
+labels: ["flaky", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A flaky test is worse than no test: it trains the team to ignore red.
+        File it, quarantine it, then fix the root cause — do not just add a retry.
+  - type: input
+    id: nodeid
+    attributes:
+      label: Test node ID
+      placeholder: tests/02_pom/test_dashboard.py::test_role_filter[admins]
+    validations:
+      required: true
+  - type: input
+    id: rate
+    attributes:
+      label: Observed failure rate
+      placeholder: "3 of 20 runs, only on webkit"
+    validations:
+      required: true
+  - type: dropdown
+    id: suspected
+    attributes:
+      label: Suspected cause
+      options:
+        - Timing / missing wait
+        - Test data collision (parallel)
+        - Order dependency
+        - Animation or visual comparison
+        - Third-party / network
+        - Genuine product bug (intermittent)
+        - Unknown
+    validations:
+      required: true
+  - type: textarea
+    id: links
+    attributes:
+      label: Links to failing runs and traces
+  - type: checkboxes
+    id: actions
+    attributes:
+      label: Immediate actions
+      options:
+        - label: Removed from the `smoke` marker so it stops blocking PRs
+        - label: Root cause identified (if not, say what you ruled out)

@@ -1,0 +1,8 @@
+# Every PR touching these paths needs a review from the listed owner.
+# Combined with branch protection ("Require review from Code Owners") this is
+# how you stop the CI pipeline from being edited without a second pair of eyes.
+#
+*                       @suryakulshreshtha
+/.github/workflows/     @suryakulshreshtha
+/pages/                 @suryakulshreshtha
+/tests/                 @suryakulshreshtha
