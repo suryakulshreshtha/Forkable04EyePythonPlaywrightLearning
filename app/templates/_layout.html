@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Forkable04Eye Demo App{% endblock %}</title>
+  <style>
+    :root { --ink:#16202c; --muted:#5b6b7f; --line:#d8e0e9; --brand:#2b6cb0; --bad:#c53030; --good:#2f855a; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; color:var(--ink); background:#f5f8fb; }
+    header { background:#fff; border-bottom:1px solid var(--line); }
+    nav { max-width:900px; margin:0 auto; padding:14px 20px; display:flex; gap:18px; align-items:center; }
+    nav a { color:var(--brand); text-decoration:none; font-weight:500; }
+    nav .spacer { flex:1; }
+    main { max-width:900px; margin:28px auto; padding:0 20px; }
+    .card { background:#fff; border:1px solid var(--line); border-radius:10px; padding:22px; margin-bottom:20px; }
+    h1 { font-size:26px; margin:0 0 6px; }
+    h2 { font-size:19px; margin:0 0 12px; }
+    label { display:block; font-weight:600; margin:14px 0 5px; font-size:14px; }
+    input[type=text], input[type=password], input[type=search], select, input[type=file] {
+      width:100%; padding:9px 11px; border:1px solid var(--line); border-radius:6px; font-size:15px; background:#fff; }
+    button { background:var(--brand); color:#fff; border:0; padding:10px 18px; border-radius:6px; font-size:15px; cursor:pointer; }
+    button.secondary { background:#fff; color:var(--brand); border:1px solid var(--brand); }
+    .alert { padding:10px 13px; border-radius:6px; margin:14px 0; font-size:14px; }
+    .alert-error { background:#fff5f5; color:var(--bad); border:1px solid #feb2b2; }
+    .alert-success { background:#f0fff4; color:var(--good); border:1px solid #9ae6b4; }
+    table { width:100%; border-collapse:collapse; margin-top:12px; }
+    th, td { text-align:left; padding:9px 10px; border-bottom:1px solid var(--line); font-size:14px; }
+    th { background:#f7fafc; font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
+    .muted { color:var(--muted); font-size:14px; }
+    .row { display:flex; gap:12px; align-items:flex-end; }
+    .row > * { flex:1; }
+  </style>
+</head>
+<body>
+  {% block nav %}{% endblock %}
+  <main>{% block content %}{% endblock %}</main>
+</body>
+</html>

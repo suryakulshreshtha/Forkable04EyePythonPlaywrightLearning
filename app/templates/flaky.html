@@ -1,0 +1,35 @@
+{% extends "_layout.html" %}
+{% block title %}Slow page | Forkable04Eye{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Deliberately slow page</h1>
+  <p class="muted">
+    The banner below appears after <strong>{{ delay_ms }}ms</strong>, then the
+    button becomes enabled 500ms later. Change the delay with
+    <code>/flaky?delay=3000</code>.
+  </p>
+
+  <div id="spinner" data-testid="spinner">Loading, please wait...</div>
+
+  <div id="late-content" hidden>
+    <div class="alert alert-success" role="status" data-testid="late-banner">
+      Content finally loaded.
+    </div>
+    <button id="action" data-testid="late-button" disabled>Click me when enabled</button>
+    <p id="clicked" data-testid="click-result" hidden>Button was clicked.</p>
+  </div>
+</div>
+
+<script>
+  const delay = {{ delay_ms }};
+  setTimeout(() => {
+    document.getElementById('spinner').hidden = true;
+    document.getElementById('late-content').hidden = false;
+    setTimeout(() => { document.getElementById('action').disabled = false; }, 500);
+  }, delay);
+
+  document.getElementById('action').addEventListener('click', () => {
+    document.getElementById('clicked').hidden = false;
+  });
+</script>
+{% endblock %}

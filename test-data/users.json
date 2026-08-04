@@ -1,0 +1,14 @@
+{
+  "valid_logins": [
+    { "username": "demo",  "password": "Password123", "label": "standard user" },
+    { "username": "admin", "password": "Admin123",    "label": "admin user" }
+  ],
+  "invalid_logins": [
+    { "username": "demo",     "password": "wrong",       "case": "wrong password" },
+    { "username": "nosuchuser","password": "Password123", "case": "unknown user" },
+    { "username": "",         "password": "Password123", "case": "empty username" },
+    { "username": "demo",     "password": "",            "case": "empty password" },
+    { "username": "DEMO",     "password": "Password123", "case": "wrong case username" }
+  ],
+  "expected_roles": ["admin", "tester", "dev"]
+}

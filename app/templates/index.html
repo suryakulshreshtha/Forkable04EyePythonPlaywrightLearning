@@ -1,0 +1,30 @@
+{% extends "_layout.html" %}
+{% block title %}Sign in | Forkable04Eye{% endblock %}
+{% block content %}
+<div class="card" style="max-width:420px;margin:60px auto;">
+  <h1>Sign in</h1>
+  <p class="muted">Try <code>demo</code> / <code>Password123</code></p>
+
+  {% if error %}
+    <!-- role="alert" is what makes get_by_role("alert") work. Ask your devs
+         for accessible markup: it is better for users AND for your locators. -->
+    <div class="alert alert-error" role="alert" data-testid="login-error">{{ error }}</div>
+  {% endif %}
+
+  <form method="post" action="/login" novalidate>
+    <label for="username">Username</label>
+    <input type="text" id="username" name="username" autocomplete="username" placeholder="demo">
+
+    <label for="password">Password</label>
+    <input type="password" id="password" name="password" autocomplete="current-password">
+
+    <label style="font-weight:400;display:flex;gap:8px;align-items:center;margin-top:16px;">
+      <input type="checkbox" id="remember" name="remember" style="width:auto;"> Remember me
+    </label>
+
+    <div style="margin-top:20px;">
+      <button type="submit" data-testid="login-submit">Log in</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

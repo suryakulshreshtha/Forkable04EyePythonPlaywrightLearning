@@ -1,0 +1,25 @@
+{% extends "_layout.html" %}
+{% block title %}Upload | Forkable04Eye{% endblock %}
+{% block nav %}{% include "_nav.html" %}{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Upload a document</h1>
+  <p class="muted">Exercises <code>locator.set_input_files()</code>, including in-memory files.</p>
+
+  {% if error %}<div class="alert alert-error" role="alert">{{ error }}</div>{% endif %}
+
+  <form method="post" enctype="multipart/form-data">
+    <label for="document">Document (.txt or .csv)</label>
+    <input type="file" id="document" name="document" accept=".txt,.csv">
+    <div style="margin-top:18px;"><button type="submit" data-testid="upload-submit">Upload</button></div>
+  </form>
+
+  {% if uploaded %}
+    <div class="alert alert-success" role="status" data-testid="upload-result">
+      Uploaded <strong data-testid="uploaded-name">{{ uploaded.name }}</strong>
+      ({{ uploaded.size }} bytes)
+    </div>
+    <pre data-testid="upload-preview" style="background:#f7fafc;padding:12px;border-radius:6px;overflow:auto;">{{ uploaded.preview }}</pre>
+  {% endif %}
+</div>
+{% endblock %}

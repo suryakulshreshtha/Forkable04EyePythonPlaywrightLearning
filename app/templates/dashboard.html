@@ -1,0 +1,86 @@
+{% extends "_layout.html" %}
+{% block title %}Dashboard | Forkable04Eye{% endblock %}
+{% block nav %}{% include "_nav.html" %}{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Dashboard</h1>
+  <p class="muted" data-testid="welcome">Welcome back, {{ user }}.</p>
+</div>
+
+<div class="card">
+  <h2>Users</h2>
+  <div class="row">
+    <div>
+      <label for="search">Filter by name</label>
+      <input type="search" id="search" placeholder="Type to filter...">
+    </div>
+    <div>
+      <label for="role-filter">Role</label>
+      <select id="role-filter" aria-label="Role">
+        <option value="">All roles</option>
+        <option value="admin">admin</option>
+        <option value="tester">tester</option>
+        <option value="dev">dev</option>
+      </select>
+    </div>
+    <div style="flex:0 0 auto;">
+      <button id="load-users" data-testid="load-users">Load users</button>
+    </div>
+  </div>
+
+  <!-- The table is EMPTY until the fetch resolves. That is the point: a test
+       that asserts on rows must wait for them, and Playwright's web-first
+       assertions do that for you. -->
+  <p id="status" data-testid="table-status" class="muted" style="margin-top:14px;">No data loaded yet.</p>
+
+  <table id="users-table" aria-label="Users" hidden>
+    <thead>
+      <tr><th>ID</th><th>Name</th><th>Email</th><th>Role</th><th>Status</th></tr>
+    </thead>
+    <tbody id="users-body"></tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h2>Export</h2>
+  <p class="muted">Practise <code>page.expect_download()</code> here.</p>
+  <a href="/download"><button class="secondary" data-testid="download-csv">Download CSV</button></a>
+</div>
+
+<script>
+  const body = document.getElementById('users-body');
+  const table = document.getElementById('users-table');
+  const status = document.getElementById('status');
+  let allUsers = [];
+
+  function render() {
+    const term = document.getElementById('search').value.toLowerCase();
+    const role = document.getElementById('role-filter').value;
+    const rows = allUsers.filter(u =>
+      u.name.toLowerCase().includes(term) && (role === '' || u.role === role)
+    );
+    body.innerHTML = rows.map(u => `
+      <tr data-testid="user-row" data-user-id="${u.id}">
+        <td>${u.id}</td><td>${u.name}</td><td>${u.email}</td><td>${u.role}</td>
+        <td>${u.active ? 'Active' : 'Inactive'}</td>
+      </tr>`).join('');
+    table.hidden = rows.length === 0;
+    status.textContent = rows.length === 0
+      ? 'No users match your filter.'
+      : `Showing ${rows.length} of ${allUsers.length} users`;
+  }
+
+  document.getElementById('load-users').addEventListener('click', async () => {
+    status.textContent = 'Loading...';
+    // Artificial latency so auto-waiting has something to wait for.
+    await new Promise(r => setTimeout(r, 700));
+    const res = await fetch('/api/users');
+    const json = await res.json();
+    allUsers = json.data;
+    render();
+  });
+
+  document.getElementById('search').addEventListener('input', render);
+  document.getElementById('role-filter').addEventListener('change', render);
+</script>
+{% endblock %}
