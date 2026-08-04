@@ -13,11 +13,14 @@ directory and everything below it.
 
 from __future__ import annotations
 
+import json
 import os
 import socket
 import subprocess
 import sys
 import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 import pytest
@@ -111,6 +114,23 @@ def _port_open(host: str, port: int, timeout: float = 0.5) -> bool:
         return sock.connect_ex((host, port)) == 0
 
 
+def _is_our_app(base: str, timeout: float = 2.0) -> bool:
+    """Is the thing on this port OUR app, or somebody else's?
+
+    "The port is open" is not the same as "my app is running". On macOS,
+    AirPlay Receiver listens on 127.0.0.1:5000 and answers every request with
+    403 -- so a naive `if port_open: reuse it` sends the whole suite at Apple's
+    service and produces failures that look like product bugs.
+    """
+    try:
+        with urllib.request.urlopen(f"{base}/health", timeout=timeout) as response:
+            if response.status != 200:
+                return False
+            return json.loads(response.read().decode()).get("status") == "ok"
+    except (urllib.error.URLError, OSError, ValueError, json.JSONDecodeError):
+        return False
+
+
 @pytest.fixture(scope="session", autouse=True)
 def app_server(pytestconfig: pytest.Config, base_url: str):
     """Start the bundled app if nothing is already listening.
@@ -129,9 +149,23 @@ def app_server(pytestconfig: pytest.Config, base_url: str):
     port = int(base_url.rsplit(":", 1)[-1].split("/")[0])
 
     if _port_open(host, port):
-        log.info("app already running on %s:%s -- reusing it", host, port)
-        yield None
-        return
+        if _is_our_app(base_url):
+            log.info("app already running on %s:%s -- reusing it", host, port)
+            yield None
+            return
+
+        raise RuntimeError(
+            f"\n\nSomething is listening on {host}:{port}, but it is NOT this app "
+            f"(GET {base_url}/health did not return {{'status': 'ok'}}).\n\n"
+            "On macOS this is almost always AirPlay Receiver, which binds port 5000 "
+            "and answers 403.\n\n"
+            "Fix it either way:\n"
+            "  1. System Settings > General > AirDrop & Handoff > AirPlay Receiver: Off\n"
+            "  2. Or use another port:\n"
+            f"       BASE_URL=http://{host}:5001 FLASK_PORT=5001 pytest\n\n"
+            "To see what is holding the port:\n"
+            f"       lsof -nP -iTCP:{port} -sTCP:LISTEN\n"
+        )
 
     log.info("starting bundled app on %s:%s", host, port)
     process = subprocess.Popen(
