@@ -266,8 +266,14 @@ jobs:
           retention-days: 30
 
       # A status comment turns "go dig through 24 job logs" into "read this".
+      # Dependabot's PRs run with a READ-ONLY GITHUB_TOKEN whatever the
+      # permissions block says, so issues.createComment returns 403 and takes
+      # the report job -- and CI gate -- down with it. Skip it for the bot, and
+      # never let a comment failure fail the build: a status comment is a
+      # convenience, not a test result.
       - name: Comment result on the pull request
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
+        continue-on-error: true
         uses: actions/github-script@v7
         with:
           script: |
