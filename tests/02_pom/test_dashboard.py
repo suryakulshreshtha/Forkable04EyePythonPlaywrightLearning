@@ -34,7 +34,7 @@ def test_role_filter(dashboard_page, role: str, expected: int) -> None:
         ("ada", ["Ada Lovelace"]),
         # "ra" appears in Dijkstra and Barbara only. Note the expected ORDER --
         # the filter preserves the source order, so this also guards sorting.
-        ("ra", ["Edsger Dijkstra", "Barbara Liskov"]),
+        ("ra", ["Grace Hopper", "Edsger Dijkstra", "Barbara Liskov"]),
         ("zzz", []),
     ],
 )
