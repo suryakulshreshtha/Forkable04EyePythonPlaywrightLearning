@@ -42,10 +42,10 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Download the combined report from the CI run
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         continue-on-error: true
         with:
           name: combined-report
@@ -64,11 +64,11 @@ jobs:
       # fresh fork does not need anyone to click through Settings first.
       # Without it this job dies with:
       #   HttpError: Not Found - Get Pages site failed
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
         with:
           enablement: true
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: site
       - id: deploy
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
