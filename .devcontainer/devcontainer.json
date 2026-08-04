@@ -1,0 +1,26 @@
+{
+  "name": "Forkable04Eye - Python + Playwright",
+  "image": "mcr.microsoft.com/playwright/python:v1.47.0-jammy",
+  "postCreateCommand": "pip install -r requirements-dev.txt && python -m playwright install --with-deps && pre-commit install",
+  "forwardPorts": [5000],
+  "portsAttributes": {
+    "5000": { "label": "App under test", "onAutoForward": "notify" }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "charliermarsh.ruff",
+        "ms-playwright.playwright",
+        "github.vscode-github-actions"
+      ],
+      "settings": {
+        "python.testing.pytestEnabled": true,
+        "python.testing.pytestArgs": ["tests"],
+        "editor.formatOnSave": true
+      }
+    }
+  },
+  "remoteUser": "pwuser"
+}

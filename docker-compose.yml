@@ -1,0 +1,31 @@
+# Two services so learners can see the "app + tests" split that mirrors CI.
+#   docker compose up --build --abort-on-container-exit
+services:
+  app:
+    build: .
+    command: python -m app.server
+    environment:
+      FLASK_HOST: 0.0.0.0
+    ports:
+      - "5000:5000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:5000/health')"]
+      interval: 3s
+      timeout: 2s
+      retries: 10
+
+  tests:
+    build: .
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      BASE_URL: http://app:5000
+      ENV: ci
+    # Serial on purpose. Two xdist workers pointed at ONE app container share
+    # its in-memory state, so their `reset_backend` calls destroy each other's
+    # rows. To parallelise here you would scale the app service and give each
+    # worker its own BASE_URL -- see the base_url fixture in conftest.py.
+    command: pytest -m "not external"
+    volumes:
+      - ./reports:/work/reports
