@@ -1,0 +1,25 @@
+# Target the OLDEST Python we support (see the CI matrix). Listing newer
+# versions here makes black emit syntax that a 3.10 run cannot parse.
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = ["reports", ".venv"]
+
+[tool.ruff.lint]
+# E/W pycodestyle, F pyflakes, I import sorting, B bugbear, UP pyupgrade,
+# PT pytest-style. PT is the interesting one for an SDET repo: it catches
+# things like bare asserts in fixtures and wrong fixture scoping idioms.
+select = ["E", "W", "F", "I", "B", "UP", "PT", "C4", "SIM"]
+ignore = [
+    "E501",  # line length is handled by black
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["B011"]  # assert False is fine in illustrative tests
+
+[tool.ruff.lint.isort]
+known-first-party = ["pages", "utils", "app"]

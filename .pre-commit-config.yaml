@@ -1,0 +1,38 @@
+# Shift-left: this runs the SAME gate as the CI `lint` job, but on git commit.
+# Install once with:  pre-commit install
+# A failed hook here saves a 6-minute red pipeline later.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml            # catches broken workflow YAML before push
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]
+      - id: detect-private-key    # never let a key reach the remote
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.5.7
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/psf/black
+    rev: 24.8.0
+    hooks:
+      - id: black
+
+  # A repo-local hook: runs our own locator audit before every commit.
+  # `pass_filenames: false` because the script scans the tree itself.
+  - repo: local
+    hooks:
+      - id: audit-locators
+        name: audit locators against the app
+        entry: python -m scripts.audit_locators
+        language: system
+        pass_filenames: false
+        files: ^(pages|tests|app)/

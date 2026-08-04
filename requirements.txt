@@ -1,0 +1,15 @@
+# ---- Runtime + test dependencies -------------------------------------------
+# Pinned with >= so learners get fixes, but see docs/00-setup.md for the
+# "pin exactly in real projects" discussion.
+playwright>=1.47.0
+pytest>=8.0.0
+pytest-playwright>=0.5.0
+pytest-xdist>=3.5.0          # parallel execution on one machine (-n auto)
+pytest-split>=0.9.0          # shard the suite across CI runners
+pytest-html>=4.1.1           # self-contained HTML report
+pytest-rerunfailures>=14.0   # controlled retries, see docs/06-flaky-tests.md
+pytest-base-url>=2.1.0
+Flask>=3.0.0                 # the bundled app under test
+Faker>=25.0.0                # test data factory
+python-dotenv>=1.0.0
+requests>=2.31.0
