@@ -1,0 +1,338 @@
+# =============================================================================
+# MAIN PIPELINE  --  runs on every push to main and every pull request.
+#
+# Job graph:
+#
+#     lint ──┬──> api-tests ──> ui-tests (matrix x shards) ──> report
+#            └──> (fails fast, so we never burn 20 runner-minutes on a
+#                  branch with a syntax error)
+#
+# Read docs/04-ci-cd-explained.md alongside this file -- it explains every
+# block below line by line.
+# =============================================================================
+name: CI
+
+on:
+  push:
+    branches: [main]
+    # Do not burn minutes when only docs change.
+    paths-ignore: ["docs/**", "**.md", "LICENSE"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:      # lets you re-run this pipeline manually from the UI
+
+# Least privilege. The default token can write to the repo; we only need reads
+# plus the ability to comment on the PR.
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+# If you push three commits in a minute, only the newest one needs to run.
+# This single block is usually the biggest CI cost saving available.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  ENV: ci
+  BASE_URL: http://127.0.0.1:5000
+  PYTHONUNBUFFERED: "1"
+  # Playwright is noticeably faster in CI with the colour/progress noise off.
+  FORCE_COLOR: "1"
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 1. LINT -- seconds, not minutes. Everything else depends on it.
+  # ---------------------------------------------------------------------------
+  lint:
+    name: Lint and collect
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-playwright
+        with:
+          python-version: "3.12"
+          browser: chromium
+          install-dev: "true"
+
+      - name: Ruff (lint)
+        run: ruff check --output-format=github .
+
+      - name: Black (format check)
+        run: black --check --diff .
+
+      # Collect-only imports every test module without running it. It catches
+      # import errors, bad fixtures and unregistered markers in ~5 seconds
+      # instead of 8 minutes into the UI matrix.
+      - name: Collect tests (import check)
+        run: pytest --collect-only -q -m "not external"
+
+      # Same idea, one layer deeper: parse every get_by_* literal out of the
+      # code and check it still resolves against the rendered app. A renamed
+      # data-testid now fails in the first 40 seconds instead of the ninth
+      # minute. Takes ~0.2s and needs no browser.
+      - name: Audit locators
+        run: python -m scripts.audit_locators
+
+  # ---------------------------------------------------------------------------
+  # 2. API TESTS -- fast contract feedback, no browser.
+  # ---------------------------------------------------------------------------
+  api-tests:
+    name: API tests
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-playwright
+        with:
+          python-version: "3.12"
+          browser: chromium
+
+      - name: Start app under test
+        run: |
+          python -m app.server &
+          echo "APP_PID=$!" >> "$GITHUB_ENV"
+
+      # Readiness probe. Without it you race the server and get a red build
+      # that has nothing to do with your code.
+      - name: Wait for app to be healthy
+        run: python -m scripts.wait_for_app "$BASE_URL/health" 60
+
+      # "api and not ui" = the truly browserless lane. See the marker
+      # discussion in conftest.py's pytest_collection_modifyitems.
+      - name: Run API tests
+        run: pytest -m "api and not ui" --no-app -v
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: report-api
+          path: reports/
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # 3. UI TESTS -- the matrix.
+  #    (3 browsers x 1 python x 4 shards) + 4 `include` legs = 16 parallel jobs.
+  #    Wall-clock time is roughly (total suite time / 4), not / 24, because the
+  #    matrix legs test DIFFERENT things while the shards split the SAME work.
+  # ---------------------------------------------------------------------------
+  ui-tests:
+    name: UI ${{ matrix.browser }} py${{ matrix.python }} shard ${{ matrix.shard }}/4
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      # false => a webkit failure does NOT cancel the chromium legs. You want
+      # the full picture from one run, not a game of whack-a-mole.
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+        python: ["3.12"]
+        shard: [1, 2, 3, 4]
+        include:
+          # Prove the suite works on the oldest supported Python too, but only
+          # on chromium -- a full 3-version x 3-browser grid is usually waste.
+          - browser: chromium
+            python: "3.10"
+            shard: 1
+          - browser: chromium
+            python: "3.10"
+            shard: 2
+          - browser: chromium
+            python: "3.10"
+            shard: 3
+          - browser: chromium
+            python: "3.10"
+            shard: 4
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-playwright
+        with:
+          python-version: ${{ matrix.python }}
+          browser: ${{ matrix.browser }}
+
+      - name: Start app under test
+        run: python -m app.server &
+
+      - name: Wait for app to be healthy
+        run: python -m scripts.wait_for_app "$BASE_URL/health" 60
+
+      # --splits/--group is pytest-split. Each runner executes a quarter of the
+      # tests. On a PR we run smoke only; on main we run everything.
+      - name: Run UI tests
+        run: |
+          MARKERS='not external and not visual'
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            MARKERS="smoke and $MARKERS"
+          fi
+          pytest \
+            -m "$MARKERS" \
+            --browser ${{ matrix.browser }} \
+            --splits 4 --group ${{ matrix.shard }} \
+            --no-app \
+            --reruns 1 --reruns-delay 2 \
+            --html=reports/report.html --self-contained-html \
+            -v
+
+      # if: always() is essential -- on a failure this is the ONLY way to get
+      # the trace off the runner, and the trace is how you debug without
+      # reproducing locally.
+      - name: Upload report, traces, videos
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: report-${{ matrix.browser }}-py${{ matrix.python }}-shard${{ matrix.shard }}
+          path: |
+            reports/
+          retention-days: 14
+          if-no-files-found: warn
+
+  # ---------------------------------------------------------------------------
+  # 4. EXTERNAL TESTS -- allowed to fail. Never blocks a merge.
+  # ---------------------------------------------------------------------------
+  external-tests:
+    name: External site tests (non-blocking)
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true      # <-- the whole point of this job
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-playwright
+        with:
+          browser: chromium
+      # No `|| true` here. `continue-on-error` above already stops this job
+      # blocking the workflow; adding `|| true` as well would make the step
+      # report success and you would never see that the site is down.
+      - name: Run external tests
+        run: pytest -m external --browser chromium --no-app -v
+
+  # ---------------------------------------------------------------------------
+  # 5. REPORT -- merge shard artifacts, publish, comment on the PR.
+  # ---------------------------------------------------------------------------
+  report:
+    name: Merge reports and publish
+    needs: [api-tests, ui-tests]
+    if: always()               # publish a report even when tests failed
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download every shard's artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: report-*
+          path: all-reports
+          merge-multiple: false
+
+      - name: Build a combined index page
+        run: |
+          mkdir -p site
+          {
+            echo "<!doctype html><meta charset=utf-8>"
+            echo "<title>Test reports - run ${{ github.run_number }}</title>"
+            echo "<style>body{font:15px system-ui;margin:40px auto;max-width:760px}"
+            echo "a{color:#2b6cb0}li{margin:6px 0}</style>"
+            echo "<h1>Forkable04Eye test reports</h1>"
+            echo "<p>Commit <code>${{ github.sha }}</code> &middot; run #${{ github.run_number }}</p><ul>"
+          } > site/index.html
+          for dir in all-reports/*/; do
+            name=$(basename "$dir")
+            mkdir -p "site/$name"
+            cp -r "$dir"* "site/$name/" 2>/dev/null || true
+            if [ -f "site/$name/report.html" ]; then
+              echo "<li><a href=\"$name/report.html\">$name</a></li>" >> site/index.html
+            fi
+          done
+          echo "</ul>" >> site/index.html
+          ls -R site | head -50
+
+      - name: Upload combined site
+        uses: actions/upload-artifact@v4
+        with:
+          name: combined-report
+          path: site/
+          retention-days: 30
+
+      # A status comment turns "go dig through 24 job logs" into "read this".
+      - name: Comment result on the pull request
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const ui = '${{ needs.ui-tests.result }}';
+            const api = '${{ needs.api-tests.result }}';
+            const icon = r => r === 'success' ? '✅' : (r === 'skipped' ? '⏭️' : '❌');
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              '### Playwright CI result',
+              '',
+              `| Stage | Result |`,
+              `| --- | --- |`,
+              `| API tests | ${icon(api)} ${api} |`,
+              `| UI tests (3 browsers x 4 shards) | ${icon(ui)} ${ui} |`,
+              '',
+              `[Full logs and downloadable traces](${runUrl})`,
+              '',
+              '<sub>Download the `report-*` artifact and run `playwright show-trace trace.zip` to replay any failure.</sub>'
+            ].join('\n');
+
+            const { data: comments } = await github.rest.issues.listComments({
+              ...context.repo, issue_number: context.issue.number
+            });
+            const existing = comments.find(c => c.body.startsWith('### Playwright CI result'));
+            if (existing) {
+              await github.rest.issues.updateComment({ ...context.repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body });
+            }
+
+      # Make the overall pipeline red if anything that matters was red.
+      # Needed because `if: always()` on this job would otherwise report green.
+      - name: Fail the pipeline if tests failed
+        if: needs.ui-tests.result == 'failure' || needs.api-tests.result == 'failure'
+        run: |
+          echo "::error::One or more test jobs failed. See the artifacts above."
+          exit 1
+
+  # ---------------------------------------------------------------------------
+  # 6. GATE -- one job with a STABLE name for branch protection to require.
+  #
+  # Why this exists: the matrix job names contain the browser and the shard
+  # number ("UI webkit py3.12 shard 3/4"). Require those directly and your
+  # protection rule breaks the moment you change the matrix -- or worse, keeps
+  # passing because the check it was waiting for no longer exists.
+  #
+  # Require ONLY "CI gate" in Settings > Branches. It is the single contract
+  # between the pipeline and the merge button.
+  # ---------------------------------------------------------------------------
+  ci-gate:
+    name: CI gate
+    needs: [lint, api-tests, ui-tests]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check every required job succeeded
+        run: |
+          echo "lint      : ${{ needs.lint.result }}"
+          echo "api-tests : ${{ needs.api-tests.result }}"
+          echo "ui-tests  : ${{ needs.ui-tests.result }}"
+          if [ "${{ needs.lint.result }}" != "success" ] || \
+             [ "${{ needs.api-tests.result }}" != "success" ] || \
+             [ "${{ needs.ui-tests.result }}" != "success" ]; then
+            echo "::error::CI gate failed - one or more required jobs did not succeed."
+            exit 1
+          fi
+          echo "All required jobs passed."
