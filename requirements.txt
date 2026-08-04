@@ -1,7 +1,7 @@
 # ---- Runtime + test dependencies -------------------------------------------
 # Pinned with >= so learners get fixes, but see docs/00-setup.md for the
 # "pin exactly in real projects" discussion.
-playwright>=1.47.0
+playwright>=1.62.0
 pytest>=8.0.0
 pytest-playwright>=0.5.0
 pytest-xdist>=3.5.0          # parallel execution on one machine (-n auto)
