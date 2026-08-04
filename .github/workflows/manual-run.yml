@@ -1,0 +1,121 @@
+# =============================================================================
+# MANUAL / ON-DEMAND RUN
+#
+# Demonstrates workflow_dispatch INPUTS -- the thing that turns a pipeline into
+# a self-service tool for the whole team. A PM can now re-run the smoke suite
+# against staging from the Actions tab without touching a terminal.
+#
+# Also demonstrates: environments, secrets, and variable precedence.
+# =============================================================================
+name: Manual test run
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        type: choice
+        required: true
+        default: local
+        options: [local, staging]
+      browser:
+        description: "Browser"
+        type: choice
+        required: true
+        default: chromium
+        options: [chromium, firefox, webkit, all]
+      markers:
+        description: "pytest -m expression"
+        type: string
+        required: false
+        default: "smoke"
+      workers:
+        description: "Parallel workers (pytest-xdist)"
+        type: choice
+        required: false
+        default: "2"
+        options: ["1", "2", "4", "auto"]
+      headed:
+        description: "Record video of every test (slower)"
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    name: ${{ inputs.markers }} on ${{ inputs.browser }} @ ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Repository Settings > Environments. An environment can hold its own
+    # secrets AND require a human approval before the job starts -- that is how
+    # you gate a production smoke run.
+    environment: ${{ inputs.environment }}
+    env:
+      ENV: ci
+      # Precedence demo: an environment VARIABLE overrides the default, and a
+      # SECRET is used for the password so it never appears in the log.
+      BASE_URL: ${{ vars.BASE_URL || 'http://127.0.0.1:5000' }}
+      TEST_USER: ${{ vars.TEST_USER || 'demo' }}
+      TEST_PASSWORD: ${{ secrets.TEST_PASSWORD || 'Password123' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-playwright
+        with:
+          browser: ${{ inputs.browser }}
+
+      - name: Show effective configuration
+        run: |
+          echo "environment : ${{ inputs.environment }}"
+          echo "base url    : $BASE_URL"
+          echo "markers     : ${{ inputs.markers }}"
+          echo "browser     : ${{ inputs.browser }}"
+          # NEVER echo a secret. GitHub masks known secret values in logs, but
+          # base64/rot13 tricks defeat that mask -- so just do not print them.
+          echo "password    : (masked)"
+
+      - name: Start local app
+        if: inputs.environment == 'local'
+        run: |
+          python -m app.server &
+          python -m scripts.wait_for_app "http://127.0.0.1:5000/health" 60
+
+      - name: Run tests
+        run: |
+          BROWSER_FLAG=""
+          if [ "${{ inputs.browser }}" = "all" ]; then
+            BROWSER_FLAG="--browser chromium --browser firefox --browser webkit"
+          else
+            BROWSER_FLAG="--browser ${{ inputs.browser }}"
+          fi
+          VIDEO_FLAG=""
+          if [ "${{ inputs.headed }}" = "true" ]; then
+            VIDEO_FLAG="--video on"
+          fi
+          pytest -m "${{ inputs.markers }}" $BROWSER_FLAG $VIDEO_FLAG \
+            --no-app -n ${{ inputs.workers }} \
+            --html=reports/report.html --self-contained-html -v
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## Manual run finished"
+            echo ""
+            echo "| Setting | Value |"
+            echo "| --- | --- |"
+            echo "| Environment | ${{ inputs.environment }} |"
+            echo "| Browser | ${{ inputs.browser }} |"
+            echo "| Markers | \`${{ inputs.markers }}\` |"
+            echo "| Workers | ${{ inputs.workers }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: manual-run-${{ github.run_number }}
+          path: reports/
+          retention-days: 7

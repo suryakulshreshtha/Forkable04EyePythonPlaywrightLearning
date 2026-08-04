@@ -1,0 +1,68 @@
+# =============================================================================
+# PUBLISH THE HTML REPORT TO GITHUB PAGES
+#
+# Downloading a zip to read a test report is friction, and friction means
+# nobody reads it. Publishing to Pages gives you a permanent URL you can drop
+# into Slack.
+#
+# One-time setup after your first push:
+#   Settings > Pages > Build and deployment > Source: "GitHub Actions"
+#
+# This workflow is triggered BY another workflow (workflow_run), which is the
+# pattern to use when the publishing step needs permissions the test job
+# should not have.
+# =============================================================================
+name: Publish report
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read            # required to download an artifact from ANOTHER run
+  pages: write
+  id-token: write          # required by the OIDC-based deploy-pages action
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    # Publish whether the tests passed or failed -- a failure report is the one
+    # you most want to read.
+    if: github.event.workflow_run.conclusion != 'skipped' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download the combined report from the CI run
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: combined-report
+          path: site
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fall back to a placeholder if there was no report
+        run: |
+          mkdir -p site
+          if [ ! -f site/index.html ]; then
+            echo "<h1>No report available for this run</h1>" > site/index.html
+          fi
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4

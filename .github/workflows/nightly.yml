@@ -1,0 +1,158 @@
+# =============================================================================
+# NIGHTLY REGRESSION
+#
+# The PR pipeline runs `smoke` only, so merges stay fast. The full suite -- all
+# markers, all browsers, plus visual baselines -- runs here on a schedule.
+#
+# This is the standard two-tier strategy: fast gate on the PR, deep sweep
+# overnight. If the nightly is red at 08:00, you know it came from yesterday's
+# merges and you have a narrow commit range to bisect.
+# =============================================================================
+name: Nightly regression
+
+on:
+  schedule:
+    # cron is UTC. GitHub's scheduler is best-effort and can lag by minutes
+    # during peak; never schedule something time-critical on the hour.
+    - cron: "0 2 * * *"        # 02:00 UTC daily
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write               # needed to auto-file a failure issue
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false   # let a running nightly finish
+
+env:
+  ENV: ci
+  BASE_URL: http://127.0.0.1:5000
+
+jobs:
+  full-regression:
+    name: Full suite - ${{ matrix.browser }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-playwright
+        with:
+          python-version: "3.12"
+          browser: ${{ matrix.browser }}
+
+      # NOTE: unlike ci.yml we do NOT start the app here, and we do NOT pass
+      # --no-app. With `-n 2` we want ONE APP PER XDIST WORKER (ports 5000 and
+      # 5001), which the app_server fixture handles. Sharing one in-memory app
+      # between workers means their state resets fight each other.
+      # In ci.yml the shards are separate runners, so one app per runner is
+      # already isolated and starting it in the workflow keeps the log clearer.
+      # `not visual` matters: a fresh fork has no committed screenshot
+      # baselines, and Playwright's documented behaviour is to GENERATE the
+      # baseline and fail that first run. Left in here, the nightly would be
+      # red on day one and would auto-file an issue about it. Visual gets its
+      # own non-blocking job below.
+      - name: Run the entire suite
+        run: |
+          pytest \
+            -m "not external and not visual" \
+            --browser ${{ matrix.browser }} \
+            -n 2 \
+            --reruns 2 --reruns-delay 3 \
+            --html=reports/report.html --self-contained-html \
+            -v
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nightly-${{ matrix.browser }}
+          path: reports/
+          retention-days: 30
+
+  visual-suite:
+    name: Visual regression (non-blocking until baselines exist)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Non-blocking on purpose. Once you have committed baselines generated on
+    # THIS runner image, flip this to false and the job becomes a real gate.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-playwright
+        with:
+          browser: chromium
+      - name: Run visual tests
+        run: pytest -m visual --browser chromium -v
+
+      # On a fresh fork this artifact contains the baselines Playwright just
+      # generated. Download it, eyeball every PNG, commit them to
+      # tests/**/__snapshots__/, then set continue-on-error: false.
+      - name: Upload generated baselines / diffs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: visual-baselines-and-diffs
+          path: |
+            tests/**/__snapshots__/**
+            reports/
+          retention-days: 30
+          if-no-files-found: warn
+
+  external-suite:
+    name: External sites
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-playwright
+        with:
+          browser: chromium
+      - run: pytest -m external --browser chromium --no-app -v
+
+  raise-issue-on-failure:
+    name: File an issue if the nightly broke
+    needs: full-regression
+    if: failure()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update a tracking issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `Nightly regression failed - ${new Date().toISOString().slice(0,10)}`;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              'The scheduled nightly regression failed.',
+              '',
+              `- Run: ${runUrl}`,
+              `- Commit: \`${context.sha}\``,
+              '',
+              '**Triage checklist**',
+              '- [ ] Is it one browser or all three? (one browser => likely a real engine-specific bug)',
+              '- [ ] Did it pass on the previous nightly? If so, bisect the merges since then.',
+              '- [ ] Download the artifact and replay: `playwright show-trace trace.zip`',
+              '- [ ] If it is flaky rather than broken, label it `flaky` and quarantine it, do not just add a retry.'
+            ].join('\n');
+
+            const { data: open } = await github.rest.issues.listForRepo({
+              ...context.repo, state: 'open', labels: 'nightly-failure'
+            });
+            if (open.length) {
+              await github.rest.issues.createComment({
+                ...context.repo, issue_number: open[0].number,
+                body: `Failed again: ${runUrl}`
+              });
+            } else {
+              await github.rest.issues.create({
+                ...context.repo, title, body, labels: ['nightly-failure', 'bug']
+              });
+            }
