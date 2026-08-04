@@ -10,6 +10,6 @@ pytest-html>=4.1.1           # self-contained HTML report
 pytest-rerunfailures>=14.0   # controlled retries, see docs/06-flaky-tests.md
 pytest-base-url>=2.1.0
 Flask>=3.0.0                 # the bundled app under test
-Faker>=25.0.0                # test data factory
+Faker>=40.36.0                # test data factory
 python-dotenv>=1.0.0
 requests>=2.31.0
