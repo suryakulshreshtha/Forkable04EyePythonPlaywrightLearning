@@ -120,7 +120,11 @@ def _is_our_app(base: str, timeout: float = 2.0) -> bool:
     "The port is open" is not the same as "my app is running". On macOS,
     AirPlay Receiver listens on 127.0.0.1:5000 and answers every request with
     403 -- so a naive `if port_open: reuse it` sends the whole suite at Apple's
-    service and produces failures that look like product bugs.
+    service and produces a page of nonsense failures (wrong page title, fill
+    timeouts, 403 instead of 201) that look like product bugs.
+
+    Identify the service, do not just probe the socket. This is the same
+    reasoning as a readiness probe checking a payload rather than a TCP connect.
     """
     try:
         with urllib.request.urlopen(f"{base}/health", timeout=timeout) as response:
@@ -158,7 +162,9 @@ def app_server(pytestconfig: pytest.Config, base_url: str):
             f"\n\nSomething is listening on {host}:{port}, but it is NOT this app "
             f"(GET {base_url}/health did not return {{'status': 'ok'}}).\n\n"
             "On macOS this is almost always AirPlay Receiver, which binds port 5000 "
-            "and answers 403.\n\n"
+            "and answers 403.\nYou would otherwise see a page of confusing failures: "
+            "wrong page title, Locator.fill timeouts,\nand 403 where the API should "
+            "return 201.\n\n"
             "Fix it either way:\n"
             "  1. System Settings > General > AirDrop & Handoff > AirPlay Receiver: Off\n"
             "  2. Or use another port:\n"

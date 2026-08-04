@@ -63,6 +63,34 @@ cp .env.example .env      # .env is gitignored
 In CI these come from workflow `env:`, repository **variables**, and repository **secrets** —
 never from a committed file. That separation is the whole reason `config.py` exists.
 
+## macOS: port 5000 is not free
+
+AirPlay Receiver binds `127.0.0.1:5000` on macOS and answers every request with
+**403**. If your tests point there you get a page of failures that look like
+product bugs — wrong page title, `Locator.fill` timeouts, `403` where the API
+should return `201`.
+
+The `app_server` fixture now detects this and stops with an explanation rather
+than letting you debug a phantom. See what holds the port:
+
+```bash
+lsof -nP -iTCP:5000 -sTCP:LISTEN
+```
+
+Two fixes:
+
+1. System Settings ▸ General ▸ AirDrop & Handoff ▸ **AirPlay Receiver: Off**
+2. Use another port:
+
+```bash
+BASE_URL=http://127.0.0.1:5001 FLASK_PORT=5001 pytest
+```
+
+The general lesson is worth more than the workaround: **"the port is open" is
+not "my service is running."** A readiness probe must identify the service, not
+just complete a TCP handshake — which is exactly why `scripts/wait_for_app.py`
+checks `/health` rather than opening a socket.
+
 ## Running the app manually
 
 ```bash

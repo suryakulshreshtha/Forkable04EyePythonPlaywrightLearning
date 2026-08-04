@@ -256,6 +256,7 @@ Each lesson file ends with a `YOUR TURN` block. Worked solutions live in
 | --- | --- |
 | `Executable doesn't exist at .../chrome-linux/chrome` | `python -m playwright install --with-deps` |
 | `Host system is missing dependencies` | `sudo python -m playwright install-deps`, or use Docker/Codespaces |
+| macOS: 403s, wrong page title, `Locator.fill` timeouts | **AirPlay Receiver owns port 5000.** Turn it off in System Settings ▸ General ▸ AirDrop & Handoff, or run `BASE_URL=http://127.0.0.1:5001 FLASK_PORT=5001 pytest` |
 | `ERR_CONNECTION_REFUSED` | Something else is on port 5000, or you passed `--no-app` without starting the app |
 | A locator silently stopped matching | `make audit` — tells you which literal broke, in 0.2s |
 | `strict mode violation: resolved to N elements` | Your locator is ambiguous — scope it or `.filter()` it. This is Playwright helping. |

@@ -60,6 +60,10 @@ jobs:
             echo "<h1>No report available for this run</h1>" > site/index.html
           fi
 
+      # enablement: true turns Pages ON via the API if it is not already, so a
+      # fresh fork does not need anyone to click through Settings first.
+      # Without it this job dies with:
+      #   HttpError: Not Found - Get Pages site failed
       - uses: actions/configure-pages@v5
         with:
           enablement: true
