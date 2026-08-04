@@ -1,0 +1,26 @@
+# Normalise line endings so a Windows clone does not produce a diff on every
+# file -- and, more importantly, so shell scripts stay LF and remain executable
+# inside the Linux CI runner and the Docker image. CRLF in setup-git.sh is the
+# classic "bash: ./setup-git.sh: /usr/bin/env: bad interpreter" bug.
+* text=auto eol=lf
+
+*.sh        text eol=lf
+*.py        text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.md        text eol=lf
+*.html      text eol=lf
+*.json      text eol=lf
+Makefile    text eol=lf
+Dockerfile  text eol=lf
+
+# Binary: never touch these, and do not show a useless diff for them.
+*.png       binary
+*.jpg       binary
+*.zip       binary
+*.webm      binary
+
+# Keep generated/reference material out of language statistics and out of PR
+# diffs by default.
+docs/**            linguist-documentation
+tests/**           linguist-detectable=true

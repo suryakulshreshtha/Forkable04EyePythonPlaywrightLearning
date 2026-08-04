@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+
+# Pytest / Playwright artifacts
+.pytest_cache/
+reports/
+test-results/
+playwright-report/
+trace.zip
+videos/
+screenshots/
+**/__snapshots__/*-actual.png
+**/__snapshots__/*-diff.png
+
+# Auth state produced at runtime (NEVER commit session tokens)
+.auth/
+storage_state.json
+
+# Tooling
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
