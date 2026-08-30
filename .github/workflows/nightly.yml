@@ -39,7 +39,7 @@ jobs:
       matrix:
         browser: [chromium, firefox, webkit]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/setup-playwright
         with:
@@ -67,7 +67,7 @@ jobs:
             --html=reports/report.html --self-contained-html \
             -v
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: nightly-${{ matrix.browser }}
@@ -82,7 +82,7 @@ jobs:
     # THIS runner image, flip this to false and the job becomes a real gate.
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup-playwright
         with:
           browser: chromium
@@ -93,7 +93,7 @@ jobs:
       # generated. Download it, eyeball every PNG, commit them to
       # tests/**/__snapshots__/, then set continue-on-error: false.
       - name: Upload generated baselines / diffs
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: visual-baselines-and-diffs
@@ -109,7 +109,7 @@ jobs:
     timeout-minutes: 20
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup-playwright
         with:
           browser: chromium
@@ -125,7 +125,7 @@ jobs:
       issues: write
     steps:
       - name: Open or update a tracking issue
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const title = `Nightly regression failed - ${new Date().toISOString().slice(0,10)}`;
