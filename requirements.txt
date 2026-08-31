@@ -12,4 +12,4 @@ pytest-base-url>=2.1.0
 Flask>=3.0.0                 # the bundled app under test
 Faker>=40.36.0                # test data factory
 python-dotenv>=1.0.0
-requests>=2.31.0
+requests>=2.34.2
