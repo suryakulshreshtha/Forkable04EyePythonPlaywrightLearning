@@ -11,5 +11,5 @@ pytest-rerunfailures>=14.0   # controlled retries, see docs/06-flaky-tests.md
 pytest-base-url>=2.1.0
 Flask>=3.0.0                 # the bundled app under test
 Faker>=40.36.0                # test data factory
-python-dotenv>=1.0.0
+python-dotenv>=1.2.3
 requests>=2.31.0
