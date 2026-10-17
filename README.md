@@ -1,3 +1,7 @@
+<!-- forkable-card:start (added by apply_cards.py; re-run it to update) -->
+![04Eye Python Playwright Learning: a complete Python and Playwright framework that teaches the automation and the CI/CD around it](.github/assets/forkable-card.png)
+<!-- forkable-card:end -->
+
 # Forkable04EyePythonPlaywrightLearning
 
 [![CI](https://github.com/suryakulshreshtha/Forkable04EyePythonPlaywrightLearning/actions/workflows/ci.yml/badge.svg)](https://github.com/suryakulshreshtha/Forkable04EyePythonPlaywrightLearning/actions/workflows/ci.yml)
