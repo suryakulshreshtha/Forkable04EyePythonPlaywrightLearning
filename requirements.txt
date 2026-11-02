@@ -2,7 +2,7 @@
 # Pinned with >= so learners get fixes, but see docs/00-setup.md for the
 # "pin exactly in real projects" discussion.
 playwright>=1.62.0
-pytest>=9.1.1
+pytest>=9.2.0
 pytest-playwright>=0.10.0
 pytest-xdist>=3.8.0          # parallel execution on one machine (-n auto)
 pytest-split>=0.11.0          # shard the suite across CI runners
