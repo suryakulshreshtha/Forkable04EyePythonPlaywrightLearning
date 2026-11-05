@@ -179,7 +179,7 @@ macOS stores it in Keychain, so this is a one-time step.
 ### (c) SSH
 
 ```bash
-ssh-keygen -t ed25519 -C "kulshreshtha.surya@engineer.com"
+ssh-keygen -t ed25519 -C "your-email@example.com"
 pbcopy < ~/.ssh/id_ed25519.pub
 ```
 
